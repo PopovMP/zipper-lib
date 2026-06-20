@@ -1,0 +1,29 @@
+{
+  "name": "zip-lib",
+  "version": "0.0.1",
+  "description": "JS Zip file reader and writer",
+  "keywords": [
+    "zip",
+    "js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git"
+  },
+  "license": "ISC",
+  "author": "PopovMP",
+  "type": "module",
+  "main": "zip-lib.ts",
+  "scripts": {
+    "check": "tsc --build",
+    "lint" : "eslint",
+    "test" : "node --test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "eslint": "^10.5.0",
+    "typescript-eslint": "^8.61.0"
+  }
+}

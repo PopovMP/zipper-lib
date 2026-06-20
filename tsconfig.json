@@ -1,0 +1,47 @@
+{
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "test-data",
+    "eslint.config.mjs",
+    "eslint-rules.mjs"
+   ],
+  "compilerOptions": {
+    "lib"        : ["ESNext"],
+    "module"     : "NodeNext",
+    "target"     : "ESNext",
+    "incremental": true,
+    "noEmit"     : true,
+    "tsBuildInfoFile": "./.cache/zip-lib.tsbuildinfo",
+
+    // Strict Type Checking
+    "allowUnreachableCode"              : false,
+    "allowUnusedLabels"                 : false,
+    "alwaysStrict"                      : true,
+    "exactOptionalPropertyTypes"        : true,
+    "noFallthroughCasesInSwitch"        : true,
+    "noImplicitAny"                     : true,
+    "noImplicitOverride"                : true,
+    "noImplicitReturns"                 : true,
+    "noImplicitThis"                    : true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals"                    : true,
+    "noUnusedParameters"                : true,
+    "strict"                            : true,
+    "strictBindCallApply"               : true,
+    "strictBuiltinIteratorReturn"       : true,
+    "strictFunctionTypes"               : true,
+    "strictNullChecks"                  : true,
+    "strictPropertyInitialization"      : true,
+    "useUnknownInCatchVariables"        : true,
+
+    // Module Resolution & Imports
+    "allowImportingTsExtensions"      : true,
+    "allowSyntheticDefaultImports"    : true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules"                 : true,
+    "moduleResolution"                : "NodeNext",
+    "types"                           : ["node"]
+  }
+}
