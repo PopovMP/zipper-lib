@@ -18,7 +18,7 @@
     "check": "tsc --build",
     "lint": "eslint",
     "test": "node --test",
-    "build": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js"
+    "build": "esbuild index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=index.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

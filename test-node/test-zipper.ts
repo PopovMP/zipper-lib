@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-import { type IZipper, makeZipper } from "../zipper-node.ts";
+import { type IZipper, makeZipper } from "../lib/zipper-node.ts";
 
 const zipPath: string = join(__dirname, "archive.zip");
 

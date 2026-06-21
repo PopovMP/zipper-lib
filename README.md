@@ -1,4 +1,4 @@
-# zip-lib
+# zipper-lib
 
 Small TypeScript ZIP writer for Node.js and browsers.
 
