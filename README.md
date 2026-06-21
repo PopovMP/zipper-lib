@@ -81,7 +81,7 @@ zipper.appendFile("path/to/file.txt", "File content string");
 ```ts
 // Append binary file with explicit parameters
 //  - mtimeMs: Date.now()
-zipper.appendFile("path/to/file.txt", new Uint8Array([42, 43, 44]), { mode: 0o644 });
+zipper.appendFile("path/to/file.bin", Uint8Array.from([42, 43, 44]), { mode: 0o644 });
 ```
 
 
