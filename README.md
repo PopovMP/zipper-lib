@@ -4,6 +4,8 @@ Small TypeScript ZIP writer for Node.js and browsers.
 
 It creates ZIP archives in memory as Uint8Array.
 
+Try a test archive.ts: (https://popovmp.github.io/zipper-lib/)
+
 ## Features
 
 - Create folders and files in a ZIP archive
@@ -21,11 +23,17 @@ Create a zipper instance.
 - Node entry: import from ./zipper-node.ts
 - Browser entry: import from ./zipper-browser.ts
 
-### IZipper
+```ts
+// Import for browser
+import { type IZipper, makeZipper } from "./lib/zipper-browser.ts";
+const zipper: IZipper = makeZipper();
+```
 
-- appendDir(path, options?)
-- appendFile(path, content, options?)
-- emit()
+```ts
+// Import for NodeJS
+import { type IZipper, makeZipper } from "./lib/zipper-node.ts";
+const zipper: IZipper = makeZipper();
+```
 
 ### appendDir(path, options?)
 
@@ -35,8 +43,21 @@ Add a directory entry.
 	- Forward slashes are used in ZIP entries.
 	- If path does not end with /, it is added automatically.
 - options:
-	- mtimeMs?: number
-	- mode?: number (default 0o755)
+	- mtimeMs?: number (default now)
+	- mode?   : number (default 0o755)
+
+```ts
+// Append a directory with default parameters:
+//  - mtimeMs: Date.now()
+//  - mode   : 0o755
+zipper.appendDir("dirname");
+```
+
+```ts
+// Append a directory with explicit parameters:
+zipper.appendDir("sub/dir/name/", {mtimeMs, mode: 0o777});
+```
+
 
 ### appendFile(path, content, options?)
 
@@ -46,65 +67,59 @@ Add a file entry.
 - content: string | Uint8Array | ArrayBuffer
 - options:
 	- mtimeMs?: number
-	- mode?: number (default 0o644)
+	- mode   ?: number (default 0o644)
 
-Note: current implementation auto-enables deflate for file content larger than 512 bytes.
+Note: current implementation compresses file content larger than 512 bytes.
 
-### emit()
+```ts
+// Append text file with default parameters
+//  - mtimeMs: Date.now()
+//  - mode   : 0o755
+zipper.appendFile("path/to/file.txt", "File content string");
+```
+
+```ts
+// Append binary file with explicit parameters
+//  - mtimeMs: Date.now()
+zipper.appendFile("path/to/file.txt", new Uint8Array([42, 43, 44]), { mode: 0o644 });
+```
+
+
+### getZip()
 
 Returns a Uint8Array containing the full ZIP archive.
 
-## Node.js Example
-
 ```ts
-import { writeFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { type IZipper, makeZipper } from "./zipper-node.ts";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const zipPath = join(__dirname, "archive.zip");
-const mtimeMs = new Date("2026-06-20T20:54:16").getTime();
-
-const zipper: IZipper = makeZipper();
-
-zipper.appendDir("nested", { mtimeMs });
-zipper.appendDir("nested/empty", { mtimeMs, mode: 0o755 });
-
-await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100), { mtimeMs });
-await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5]), { mtimeMs });
-await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs, mode: 0o744 });
-
-const zip = zipper.emit();
-writeFileSync(zipPath, zip);
+// Get the ZIP bytes
+const zip: uint8Array = zipper.getZip();
 ```
 
-## Browser Example
+## Full Example
 
 ```ts
-import { type IZipper, makeZipper } from "../zipper-browser.ts";
 
-document.addEventListener("DOMContentLoaded", () => {
-		const downloadButton = document.getElementById("download-button");
-		if (!(downloadButton instanceof HTMLButtonElement)) {
-				throw new Error("Expected #download-button to be a button.");
-		}
+// Import for browser
+// import { type IZipper, makeZipper } from "./lib/zipper-browser.ts";
 
-		downloadButton.addEventListener("click", async (): Promise<void> => {
-				const zipper: IZipper = makeZipper();
-				const mtimeMs = Date.now();
+// Import for NodeJS
+import { type IZipper, makeZipper } from "./lib/zipper-node.ts";
 
-				zipper.appendDir("nested", { mtimeMs });
-				await zipper.appendFile("hello.txt", "Hello from browser\n".repeat(100), { mtimeMs });
+// Make new zipper instance to start a new ZIP archive
+const zipper: IZipper = makeZipper();
 
-				const zipBytes = zipper.emit();
-				// Do something with the zipBytes
-		});
-});
+// Append directories
+zipper.appendDir("nested");
+zipper.appendDir("nested/empty", { mode: 0o755 }); // Set unix mode explicitly
 
+// Append files
+await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100), { mtimeMs: Date.parse("2026-06-18T18:33") }); // Set modification time
+await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 0o744 }); // Make executable
+
+// Produce the ZIP archive
+const zip = zipper.getZip();
+
+// Do something with the ZIP
 ```
 
 ## Build and Validate

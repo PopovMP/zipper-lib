@@ -11,7 +11,7 @@ var Zipper = (() => {
     return {
       appendDir,
       appendFile,
-      emit
+      getZip
     };
     function appendDir(path, options) {
       const dirEntry = {
@@ -89,7 +89,7 @@ var Zipper = (() => {
       localHeaderOffset += localFileHeader.length + filenameBytes.length + compressedBytes.length;
       countEntries += 1;
     }
-    function emit() {
+    function getZip() {
       const centralDirectoryOffset = localHeaderOffset;
       const centralDirectory = concatBytes(centralDirectoryChunks);
       const endOfCentralDirectory = createLittleEndianBuffer(22, (view) => {
@@ -197,14 +197,13 @@ var Zipper = (() => {
     }
   }
   async function onDownloadButtonClick() {
-    const mtimeMs = (/* @__PURE__ */ new Date("2026-06-20T20:54:16")).getTime();
     const zipper = makeZipper();
-    zipper.appendDir("nested", { mtimeMs });
-    zipper.appendDir("nested/empty", { mtimeMs, mode: 493 });
-    await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100));
-    await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), { mtimeMs });
-    await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs, mode: 484 });
-    const zip = zipper.emit();
+    zipper.appendDir("nested");
+    zipper.appendDir("nested/empty", { mode: 493 });
+    await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100), { mtimeMs: Date.parse("2026-06-18T18:33") });
+    await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 484 });
+    const zip = zipper.getZip();
     downloadBytesAsFile("archive.zip", zip);
   }
   function downloadBytesAsFile(filename, data) {

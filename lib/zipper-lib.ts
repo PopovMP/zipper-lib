@@ -11,7 +11,7 @@ export interface IZipperDirOptions {
 export interface IZipper {
     appendDir : (path: string, options?: IZipperDirOptions) => void;
     appendFile: (path: string, content: string | Uint8Array | ArrayBuffer, options?: IZipperFileOptions) => Promise<void>;
-    emit      : () => Uint8Array;
+    getZip    : () => Uint8Array;
 }
 
 interface IZipperEntry {
@@ -35,7 +35,7 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
     return {
         appendDir,
         appendFile,
-        emit,
+        getZip,
     };
 
     function appendDir(path: string, options?: IZipperDirOptions): void {
@@ -128,7 +128,7 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
         countEntries         += 1;
     }
 
-    function emit(): Uint8Array {
+    function getZip(): Uint8Array {
         const centralDirectoryOffset: number = localHeaderOffset;
 
         const centralDirectory: Uint8Array = concatBytes(centralDirectoryChunks);

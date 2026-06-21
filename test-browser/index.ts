@@ -14,28 +14,31 @@ function main(): void {
 }
 
 async function onDownloadButtonClick(): Promise<void> {
-    const mtimeMs = new Date("2026-06-20T20:54:16").getTime();
-
+    // Make new zipper instance to start a new ZIP archive
     const zipper: IZipper = makeZipper();
-    zipper.appendDir("nested", { mtimeMs });
-    zipper.appendDir("nested/empty", { mtimeMs, mode: 0o755 });
 
-    await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100));
-    await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), {mtimeMs});
-    await zipper.appendFile("nested/echo.sh", "echo Hello World", {mtimeMs, mode: 0o744});
+    // Append directories
+    zipper.appendDir("nested");
+    zipper.appendDir("nested/empty", { mode: 0o755 }); // Set unix mode explicitly
 
-    const zip = zipper.emit();
+    // Append files
+    await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100), { mtimeMs: Date.parse("2026-06-18T18:33") }); // Set modification time
+    await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 0o744 }); // Make executable
+
+    // Produce the ZIP archive
+    const zip = zipper.getZip();
 
     downloadBytesAsFile("archive.zip", zip);
 }
 
 function downloadBytesAsFile(filename: string, data: Uint8Array): void {
-    const binary: ArrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-    const blobUrl: string = URL.createObjectURL(new Blob([binary], { type: "application/zip" }));
+    const binary : ArrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+    const blobUrl: string      = URL.createObjectURL(new Blob([binary], { type: "application/zip" }));
     const anchor = document.createElement("a");
 
-    anchor.href          = blobUrl;
-    anchor.download      = filename;
+    anchor.href     = blobUrl;
+    anchor.download = filename;
     anchor.style.display = "none";
     document.body.appendChild(anchor);
     anchor.click();

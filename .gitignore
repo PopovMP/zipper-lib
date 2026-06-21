@@ -1,4 +1,5 @@
 .cache
 node_modules
 test-node/archive.zip
+test-node/nested/**.*
 package-lock.json
