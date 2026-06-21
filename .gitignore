@@ -1,4 +1,4 @@
 .cache
 node_modules
-test-data/temp
-!test-data/temp/.gitkeep
+test-node/archive.zip
+test-browser/index.js

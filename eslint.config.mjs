@@ -7,7 +7,7 @@ import { rules } from "./eslint-rules.mjs";
 export default defineConfig(
   {
     ignores: [
-      "tests",
+      "test-browser/index.js",
       "eslint-rules.mjs",
       "eslint.config.mjs",
     ],

@@ -3,17 +3,16 @@
     "**/*.ts"
   ],
   "exclude": [
-    "test-data",
     "eslint.config.mjs",
-    "eslint-rules.mjs"
+    "eslint-rules.mjs",
    ],
   "compilerOptions": {
-    "lib"        : ["ESNext"],
+    "lib"        : ["ES2021"],
     "module"     : "NodeNext",
     "target"     : "ESNext",
     "incremental": true,
     "noEmit"     : true,
-    "tsBuildInfoFile": "./.cache/zip-lib.tsbuildinfo",
+    "tsBuildInfoFile": "./.cache/zipper-lib.tsbuildinfo",
 
     // Strict Type Checking
     "allowUnreachableCode"              : false,

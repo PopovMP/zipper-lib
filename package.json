@@ -16,14 +16,19 @@
   "main": "zip-lib.ts",
   "scripts": {
     "check": "tsc --build",
-    "lint" : "eslint",
-    "test" : "node --test"
+    "lint": "eslint",
+    "test": "node --test",
+    "build": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.3",
     "typescript": "^6.0.3",
     "eslint": "^10.5.0",
-    "typescript-eslint": "^8.61.0"
+    "typescript-eslint": "^8.61.0",
+    "esbuild": "^0.28.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }
