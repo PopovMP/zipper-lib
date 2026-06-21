@@ -8,12 +8,12 @@ function main(): void {
     const downloadButton: HTMLElement | null = document.getElementById("download-button");
     if (downloadButton) {
         downloadButton.addEventListener("click", () => {
-            void onDownloadButtonClick();
+            void exportTestArchive();
         });
     }
 }
 
-async function onDownloadButtonClick(): Promise<void> {
+async function exportTestArchive(): Promise<void> {
     // Make new zipper instance to start a new ZIP archive
     const zipper: IZipper = makeZipper();
 
@@ -27,7 +27,7 @@ async function onDownloadButtonClick(): Promise<void> {
     await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 0o744 }); // Make executable
 
     // Produce the ZIP archive
-    const zip = zipper.getZip();
+    const zip: Uint8Array = zipper.getZip();
 
     downloadBytesAsFile("archive.zip", zip);
 }

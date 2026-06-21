@@ -37,21 +37,19 @@ var Zipper = (() => {
       return appendEntry(fileEntry);
     }
     async function appendEntry(entry) {
-      const isDirectory = entry.isDir;
+      const compression = entry.deflate ? 8 : 0;
       const modTime = getModTime(entry.mtimeMs);
       const modDate = getModDate(entry.mtimeMs);
+      const checksum = crc32(entry.content);
       const filenameBytes = encodeUtf8(entry.path);
-      const sourceBytes = entry.content;
-      let compressedBytes;
+      const externalAttrs = getExternalAttributes(entry.isDir, entry.mode);
+      let fileDataBytes;
       if (entry.deflate) {
-        compressedBytes = await deflatePromise(sourceBytes);
+        fileDataBytes = await deflatePromise(entry.content);
       } else {
-        compressedBytes = sourceBytes;
+        fileDataBytes = entry.content;
       }
-      const checksum = crc32(sourceBytes);
-      const compression = entry.deflate ? 8 : 0;
-      const externalAttrs = getExternalAttributes(isDirectory, entry.mode);
-      const localFileHeader = createLittleEndianBuffer(30, (view) => {
+      const localFileHeader = writeHeader(30, (view) => {
         view.setUint32(0, 67324752, true);
         view.setUint16(4, 20, true);
         view.setUint16(6, 0, true);
@@ -59,13 +57,13 @@ var Zipper = (() => {
         view.setUint16(10, modTime, true);
         view.setUint16(12, modDate, true);
         view.setUint32(14, checksum, true);
-        view.setUint32(18, compressedBytes.length, true);
-        view.setUint32(22, sourceBytes.length, true);
+        view.setUint32(18, fileDataBytes.length, true);
+        view.setUint32(22, entry.content.length, true);
         view.setUint16(26, filenameBytes.length, true);
         view.setUint16(28, 0, true);
       });
-      chunks.push(localFileHeader, filenameBytes, compressedBytes);
-      const centralDirectoryHeader = createLittleEndianBuffer(46, (view) => {
+      chunks.push(localFileHeader, filenameBytes, fileDataBytes);
+      const centralDirectoryHeader = writeHeader(46, (view) => {
         view.setUint32(0, 33639248, true);
         view.setUint16(4, 788, true);
         view.setUint16(6, 20, true);
@@ -74,8 +72,8 @@ var Zipper = (() => {
         view.setUint16(12, modTime, true);
         view.setUint16(14, modDate, true);
         view.setUint32(16, checksum, true);
-        view.setUint32(20, compressedBytes.length, true);
-        view.setUint32(24, sourceBytes.length, true);
+        view.setUint32(20, fileDataBytes.length, true);
+        view.setUint32(24, entry.content.length, true);
         view.setUint16(28, filenameBytes.length, true);
         view.setUint16(30, 0, true);
         view.setUint16(32, 0, true);
@@ -86,13 +84,13 @@ var Zipper = (() => {
       });
       centralDirectoryChunks.push(centralDirectoryHeader, filenameBytes);
       centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
-      localHeaderOffset += localFileHeader.length + filenameBytes.length + compressedBytes.length;
+      localHeaderOffset += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
       countEntries += 1;
     }
     function getZip() {
       const centralDirectoryOffset = localHeaderOffset;
       const centralDirectory = concatBytes(centralDirectoryChunks);
-      const endOfCentralDirectory = createLittleEndianBuffer(22, (view) => {
+      const endOfCentralDirectory = writeHeader(22, (view) => {
         view.setUint32(0, 101010256, true);
         view.setUint16(4, 0, true);
         view.setUint16(6, 0, true);
@@ -119,9 +117,9 @@ var Zipper = (() => {
     function getExternalAttributes(isDirectory, mode) {
       const perm = (mode ?? (isDirectory ? 493 : 420)) & 4095;
       const type = isDirectory ? 16384 : 32768;
-      const unixMode = type | perm;
+      const unixAttrs = type | perm;
       const dosAttrs = isDirectory ? 16 : 0;
-      return (unixMode & 65535) << 16 | dosAttrs;
+      return (unixAttrs & 65535) << 16 | dosAttrs;
     }
     function getCrc32Table() {
       const table = new Uint32Array(256);
@@ -156,7 +154,7 @@ var Zipper = (() => {
       const day = date.getDate();
       return (year - 1980 & 127) << 9 | (month & 15) << 5 | day & 31;
     }
-    function createLittleEndianBuffer(size, write) {
+    function writeHeader(size, write) {
       const bytes = new Uint8Array(size);
       write(new DataView(bytes.buffer));
       return bytes;
@@ -175,15 +173,14 @@ var Zipper = (() => {
 
   // lib/zipper-browser.ts
   function makeZipper() {
+    return makeZipperLib(deflatePromiseBrowser);
     async function deflatePromiseBrowser(buffer) {
-      const webGlobal = globalThis;
-      const blob = new webGlobal.Blob([buffer]);
-      const deflateRaw = new webGlobal.CompressionStream("deflate-raw");
+      const blob = new globalThis.Blob([buffer]);
+      const deflateRaw = new globalThis.CompressionStream("deflate-raw");
       const compressedStream = blob.stream().pipeThrough(deflateRaw);
-      const compressedBuffer = await new webGlobal.Response(compressedStream).arrayBuffer();
+      const compressedBuffer = await new globalThis.Response(compressedStream).arrayBuffer();
       return new Uint8Array(compressedBuffer);
     }
-    return makeZipperLib(deflatePromiseBrowser);
   }
 
   // test-browser/index.ts
@@ -192,11 +189,11 @@ var Zipper = (() => {
     const downloadButton = document.getElementById("download-button");
     if (downloadButton) {
       downloadButton.addEventListener("click", () => {
-        void onDownloadButtonClick();
+        void exportTestArchive();
       });
     }
   }
-  async function onDownloadButtonClick() {
+  async function exportTestArchive() {
     const zipper = makeZipper();
     zipper.appendDir("nested");
     zipper.appendDir("nested/empty", { mode: 493 });

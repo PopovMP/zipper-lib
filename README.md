@@ -91,13 +91,12 @@ Returns a Uint8Array containing the full ZIP archive.
 
 ```ts
 // Get the ZIP bytes
-const zip: uint8Array = zipper.getZip();
+const zip: Uint8Array = zipper.getZip();
 ```
 
 ## Full Example
 
 ```ts
-
 // Import for browser
 // import { type IZipper, makeZipper } from "./lib/zipper-browser.ts";
 
@@ -117,17 +116,18 @@ await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6,
 await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 0o744 }); // Make executable
 
 // Produce the ZIP archive
-const zip = zipper.getZip();
+const zip: Uint8Array = zipper.getZip();
 
 // Do something with the ZIP
 ```
 
 ## Build and Validate
 
-Type check:
+Type check and lint:
 
 ```bash
 npm run check
+npm run lint
 ```
 
 Bundle browser demo:
@@ -140,6 +140,7 @@ Run Node test script:
 
 ```bash
 node ./test-node/test-zipper.ts
+// => ./test-node/archive.zip
 ```
 
 ## Notes

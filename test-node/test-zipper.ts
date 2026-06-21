@@ -26,6 +26,6 @@ await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6,
 await zipper.appendFile("nested/echo.sh", "echo Hello World", { mtimeMs: Date.now(), mode: 0o744 }); // Make executable
 
 // Produce the ZIP archive
-const zip = zipper.getZip();
+const zip: Uint8Array = zipper.getZip();
 
 writeFileSync(zipPath, zip);
