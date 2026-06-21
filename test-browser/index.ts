@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import { type IZipper, makeZipper } from "./lib/zipper-browser.ts";
+import { type IZipper, makeZipper } from "../lib/zipper-browser.ts";
 
 document.addEventListener("DOMContentLoaded", main);
 

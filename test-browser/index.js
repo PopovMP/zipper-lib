@@ -186,7 +186,7 @@ var Zipper = (() => {
     return makeZipperLib(deflatePromiseBrowser);
   }
 
-  // index.ts
+  // test-browser/index.ts
   document.addEventListener("DOMContentLoaded", main);
   function main() {
     const downloadButton = document.getElementById("download-button");

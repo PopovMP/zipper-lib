@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "JS Zip file reader and writer",
   "keywords": [
-    "zip",
-    "js"
+    "zip"
   ],
   "repository": {
     "type": "git",
@@ -18,7 +17,7 @@
     "check": "tsc --build",
     "lint": "eslint",
     "test": "node --test",
-    "build": "esbuild index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=index.js"
+    "build": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

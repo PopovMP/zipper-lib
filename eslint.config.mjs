@@ -9,7 +9,7 @@ export default defineConfig(
     ignores: [
       "test-browser/index.js",
       "eslint-rules.mjs",
-      "eslint.config.mjs",
+      "eslint.config.mjs"
     ],
   },
   eslint.configs.recommended,
