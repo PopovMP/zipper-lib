@@ -1,6 +1,6 @@
 {
-  "name": "zip-lib",
-  "version": "0.0.1",
+  "name": "zipper-lib",
+  "version": "1.0.0",
   "description": "JS Zip file reader and writer",
   "keywords": [
     "zip",
