@@ -19,8 +19,8 @@ interface IZipperEntry {
 }
 
 export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Uint8Array>): IZipper {
-    const crc32Table: Uint32Array  = getCrc32Table();
-    const chunks    : Uint8Array[] = [];
+    const crc32Table            : Uint32Array  = getCrc32Table();
+    const entriesChunks         : Uint8Array[] = [];
     const centralDirectoryChunks: Uint8Array[] = [];
 
     let centralDirectorySize: number = 0;
@@ -62,12 +62,12 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
     }
 
     async function appendEntry(entry: IZipperEntry): Promise<void> {
-        const compression    : number     = entry.deflate ? 8 : 0;
-        const modTime        : number     = getModTime(entry.mtimeMs);
-        const modDate        : number     = getModDate(entry.mtimeMs);
-        const checksum       : number     = crc32(entry.content);
-        const filenameBytes  : Uint8Array = encodeUtf8(entry.path);
-        const externalAttrs  : number     = getExternalAttributes(entry.isDir, entry.mode);
+        const compression  : number     = entry.deflate ? 8 : 0;
+        const modTime      : number     = getModTime(entry.mtimeMs);
+        const modDate      : number     = getModDate(entry.mtimeMs);
+        const checksum     : number     = crc32(entry.content);
+        const filenameBytes: Uint8Array = encodeUtf8(entry.path);
+        const externalAttrs: number     = getExternalAttributes(entry.isDir, entry.mode);
 
         let fileDataBytes: Uint8Array;
         if (entry.deflate) {
@@ -91,9 +91,7 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
             view.setUint16(28, 0,                    true); // Extra field length
         });
 
-        chunks.push(localFileHeader, filenameBytes, fileDataBytes);
-
-        // Central Directory File Header. 46 bytes + filename
+        // Central Directory File Header - 46 bytes
         const centralDirectoryHeader: Uint8Array = writeHeader(46, (view) => {
             view.setUint32( 0, 0x02014b50,           true); // Signature 0x02014b50
             view.setUint16( 4, 0x0314,               true); // Made on Unix (0x03), ZIP version 2.0 (0x14)
@@ -114,30 +112,31 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
             view.setUint32(42, localHeaderOffset,    true); // Offset from the start of the archive
         });
 
+        entriesChunks.push(localFileHeader, filenameBytes, fileDataBytes);
         centralDirectoryChunks.push(centralDirectoryHeader, filenameBytes);
-        centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
-        localHeaderOffset    += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
+
         countEntries         += 1;
+        localHeaderOffset    += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
+        centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
     }
 
     function getZip(): Uint8Array {
-        const centralDirectoryOffset: number = localHeaderOffset;
-
-        const centralDirectory: Uint8Array = concatBytes(centralDirectoryChunks);
-
-        // End of Central Directory record. 22 bytes + comment
+        // End of Central Directory record - 22 bytes
         const endOfCentralDirectory: Uint8Array = writeHeader(22, (view) => {
-            view.setUint32( 0, 0x06054b50,             true); // Signature 0x06054b50
-            view.setUint16( 4, 0,                      true); // Disk where Central Directory ends
-            view.setUint16( 6, 0,                      true); // Disk where central directory starts
-            view.setUint16( 8, countEntries,           true); // Number of central directory records on this disk
-            view.setUint16(10, countEntries,           true); // Total number of central directory records
-            view.setUint32(12, centralDirectorySize,   true); // Central directory size in bytes
-            view.setUint32(16, centralDirectoryOffset, true); // Offset of start of central directory, relative to start of archive
-            view.setUint16(20, 0,                      true); // Comment length
+            view.setUint32( 0, 0x06054b50,           true); // Signature 0x06054b50
+            view.setUint16( 4, 0,                    true); // Disk where Central Directory ends
+            view.setUint16( 6, 0,                    true); // Disk where central directory starts
+            view.setUint16( 8, countEntries,         true); // Number of central directory records on this disk
+            view.setUint16(10, countEntries,         true); // Total number of central directory records
+            view.setUint32(12, centralDirectorySize, true); // Central directory size in bytes
+            view.setUint32(16, localHeaderOffset,    true); // Offset of start of central directory, relative to start of archive
+            view.setUint16(20, 0,                    true); // Comment length
         });
 
-        return concatBytes([...chunks, centralDirectory, endOfCentralDirectory]);
+        const entriesContent  : Uint8Array = concatBytes(entriesChunks);
+        const centralDirectory: Uint8Array = concatBytes(centralDirectoryChunks);
+
+        return concatBytes([entriesContent, centralDirectory, endOfCentralDirectory]);
     }
 
     function encodeUtf8(text: string): Uint8Array {
@@ -157,10 +156,11 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
     }
 
     function getExternalAttributes(isDirectory: boolean, mode?: number): number {
-        const perm = (mode ?? (isDirectory ? 0o755 : 0o644)) & 0o7777;
-        const type = isDirectory ? 0o040000 : 0o100000;
+        const perm      = (mode ?? (isDirectory ? 0o755 : 0o644)) & 0o7777;
+        const type      = isDirectory ? 0o040000 : 0o100000;
         const unixAttrs = type | perm;
         const dosAttrs  = isDirectory ? 0x10 : 0x00;
+
         return ((unixAttrs & 0xFFFF) << 16) | dosAttrs;
     }
 

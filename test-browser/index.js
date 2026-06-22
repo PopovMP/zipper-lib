@@ -3,7 +3,7 @@ var Zipper = (() => {
   // lib/zipper-lib.ts
   function makeZipperLib(deflatePromise) {
     const crc32Table = getCrc32Table();
-    const chunks = [];
+    const entriesChunks = [];
     const centralDirectoryChunks = [];
     let centralDirectorySize = 0;
     let localHeaderOffset = 0;
@@ -62,7 +62,6 @@ var Zipper = (() => {
         view.setUint16(26, filenameBytes.length, true);
         view.setUint16(28, 0, true);
       });
-      chunks.push(localFileHeader, filenameBytes, fileDataBytes);
       const centralDirectoryHeader = writeHeader(46, (view) => {
         view.setUint32(0, 33639248, true);
         view.setUint16(4, 788, true);
@@ -82,14 +81,13 @@ var Zipper = (() => {
         view.setUint32(38, externalAttrs, true);
         view.setUint32(42, localHeaderOffset, true);
       });
+      entriesChunks.push(localFileHeader, filenameBytes, fileDataBytes);
       centralDirectoryChunks.push(centralDirectoryHeader, filenameBytes);
-      centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
-      localHeaderOffset += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
       countEntries += 1;
+      localHeaderOffset += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
+      centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
     }
     function getZip() {
-      const centralDirectoryOffset = localHeaderOffset;
-      const centralDirectory = concatBytes(centralDirectoryChunks);
       const endOfCentralDirectory = writeHeader(22, (view) => {
         view.setUint32(0, 101010256, true);
         view.setUint16(4, 0, true);
@@ -97,10 +95,12 @@ var Zipper = (() => {
         view.setUint16(8, countEntries, true);
         view.setUint16(10, countEntries, true);
         view.setUint32(12, centralDirectorySize, true);
-        view.setUint32(16, centralDirectoryOffset, true);
+        view.setUint32(16, localHeaderOffset, true);
         view.setUint16(20, 0, true);
       });
-      return concatBytes([...chunks, centralDirectory, endOfCentralDirectory]);
+      const entriesContent = concatBytes(entriesChunks);
+      const centralDirectory = concatBytes(centralDirectoryChunks);
+      return concatBytes([entriesContent, centralDirectory, endOfCentralDirectory]);
     }
     function encodeUtf8(text) {
       return new TextEncoder().encode(text);
