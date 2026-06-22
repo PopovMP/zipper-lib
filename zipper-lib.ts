@@ -61,6 +61,7 @@ export function makeZipper(): IZipper {
     async function appendEntry(entry: IZipperEntry): Promise<void> {
         const isDeflate    : boolean    = !entry.isDir && entry.content.length > 512;
         const compression  : number     = isDeflate ? 8 : 0;
+        const gpFlags      : number     = 0x0800; // Bit 11: UTF-8 file name/comment
         const modTime      : number     = getModTime(entry.mtimeMs);
         const modDate      : number     = getModDate(entry.mtimeMs);
         const checksum     : number     = crc32(entry.content);
@@ -79,7 +80,7 @@ export function makeZipper(): IZipper {
         const lfhView  : DataView = new DataView(lfhBuffer.buffer);
         lfhView.setUint32( 0, 0x04034b50,           true); // Local file header signature 0x04034b50
         lfhView.setUint16( 4, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
-        lfhView.setUint16( 6, 0,                    true); // General purpose bit flag
+        lfhView.setUint16( 6, gpFlags,              true); // General purpose bit flag
         lfhView.setUint16( 8, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
         lfhView.setUint16(10, modTime,              true); // Last modification time - DOS format
         lfhView.setUint16(12, modDate,              true); // Last modification date - DOS format
@@ -95,7 +96,7 @@ export function makeZipper(): IZipper {
         cdhView.setUint32( 0, 0x02014b50,           true); // Signature 0x02014b50
         cdhView.setUint16( 4, 0x0314,               true); // Made on Unix (0x03), ZIP version 2.0 (0x14)
         cdhView.setUint16( 6, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
-        cdhView.setUint16( 8, 0,                    true); // General purpose bit flag
+        cdhView.setUint16( 8, gpFlags,              true); // General purpose bit flag
         cdhView.setUint16(10, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
         cdhView.setUint16(12, modTime,              true); // Last modification time - DOS format
         cdhView.setUint16(14, modDate,              true); // Last modification date - DOS format
