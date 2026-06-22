@@ -69,8 +69,7 @@ export function makeZipper(): IZipper {
 
         let fileDataBytes: Uint8Array;
         if (isDeflate) {
-            const compressedBuffer: ArrayBuffer = await deflateRaw(entry.content.buffer as ArrayBuffer);
-            fileDataBytes = new Uint8Array(compressedBuffer);
+            fileDataBytes = await deflateRaw(entry.content);
         } else {
             fileDataBytes = entry.content;
         }
@@ -226,13 +225,14 @@ export function makeZipper(): IZipper {
         return output;
     }
 
-    async function deflateRaw(inputBuffer: ArrayBuffer): Promise<ArrayBuffer> {
-        const inputBlob         : Blob              = new globalThis.Blob([inputBuffer]);
+    async function deflateRaw(input: Uint8Array): Promise<Uint8Array> {
+        const inputBlob         : Blob              = new globalThis.Blob([input as unknown as ArrayBuffer]);
         const uncompressedStream: ReadableStream    = inputBlob.stream();
         const deflateTransform  : CompressionStream = new globalThis.CompressionStream("deflate-raw");
         const compressedStream  : ReadableStream    = uncompressedStream.pipeThrough(deflateTransform);
         const compressedResponse: Response          = new globalThis.Response(compressedStream);
+        const compressedBuffer  : ArrayBuffer       = await compressedResponse.arrayBuffer();
 
-        return compressedResponse.arrayBuffer();
+        return new Uint8Array(compressedBuffer);
     }
 }
