@@ -15,17 +15,16 @@ interface IZipperEntry {
     isDir  : boolean;
     mtimeMs: number;
     mode   : number;  // Example dir: 0o755, file: 0o644, executable: 0o744
-    deflate: boolean; // If missing, true for files
 }
 
 export function makeZipper(): IZipper {
-    const crc32Table            : Uint32Array  = getCrc32Table();
-    const entriesChunks         : Uint8Array[] = [];
-    const centralDirectoryChunks: Uint8Array[] = [];
+    const crc32Table     : Uint32Array  = getCrc32Table();
+    const entriesChunks  : Uint8Array[] = [];
+    const directoryChunks: Uint8Array[] = [];
 
-    let centralDirectorySize: number = 0;
-    let localHeaderOffset   : number = 0;
-    let countEntries        : number = 0;
+    let countEntries : number = 0;
+    let headerOffset : number = 0;
+    let directorySize: number = 0;
 
     return {
         appendDir,
@@ -40,7 +39,6 @@ export function makeZipper(): IZipper {
             isDir  : true,
             mtimeMs: options?.mtimeMs ?? Date.now(),
             mode   : options?.mode    ?? 0o755,
-            deflate: false,
         };
 
         void appendEntry(dirEntry);
@@ -55,14 +53,14 @@ export function makeZipper(): IZipper {
             isDir  : false,
             mtimeMs: options?.mtimeMs ?? Date.now(),
             mode   : options?.mode    ?? 0o644,
-            deflate: byteContent.length > 512,
         };
 
         return appendEntry(fileEntry);
     }
 
     async function appendEntry(entry: IZipperEntry): Promise<void> {
-        const compression  : number     = entry.deflate ? 8 : 0;
+        const isDeflate    : boolean    = !entry.isDir && entry.content.length > 512;
+        const compression  : number     = isDeflate ? 8 : 0;
         const modTime      : number     = getModTime(entry.mtimeMs);
         const modDate      : number     = getModDate(entry.mtimeMs);
         const checksum     : number     = crc32(entry.content);
@@ -70,73 +68,74 @@ export function makeZipper(): IZipper {
         const externalAttrs: number     = getExternalAttributes(entry.isDir, entry.mode);
 
         let fileDataBytes: Uint8Array;
-        if (entry.deflate) {
-            fileDataBytes = await deflateRaw(entry.content);
+        if (isDeflate) {
+            const compressedBuffer: ArrayBuffer = await deflateRaw(entry.content.buffer as ArrayBuffer);
+            fileDataBytes = new Uint8Array(compressedBuffer);
         } else {
             fileDataBytes = entry.content;
         }
 
         // Local File Header - 30 bytes
-        const localFileHeader: Uint8Array = writeHeader(30, (view) => {
-            view.setUint32( 0, 0x04034b50,           true); // Local file header signature 0x04034b50
-            view.setUint16( 4, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
-            view.setUint16( 6, 0,                    true); // General purpose bit flag
-            view.setUint16( 8, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
-            view.setUint16(10, modTime,              true); // Last modification time - DOS format
-            view.setUint16(12, modDate,              true); // Last modification date - DOS format
-            view.setUint32(14, checksum,             true); // CRC-32 checksum
-            view.setUint32(18, fileDataBytes.length, true); // Compressed size
-            view.setUint32(22, entry.content.length, true); // Uncompressed size
-            view.setUint16(26, filenameBytes.length, true); // Entry name length
-            view.setUint16(28, 0,                    true); // Extra field length
-        });
+        const lfhBuffer: Uint8Array = new Uint8Array(30);
+        const lfhView  : DataView = new DataView(lfhBuffer.buffer);
+        lfhView.setUint32( 0, 0x04034b50,           true); // Local file header signature 0x04034b50
+        lfhView.setUint16( 4, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
+        lfhView.setUint16( 6, 0,                    true); // General purpose bit flag
+        lfhView.setUint16( 8, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
+        lfhView.setUint16(10, modTime,              true); // Last modification time - DOS format
+        lfhView.setUint16(12, modDate,              true); // Last modification date - DOS format
+        lfhView.setUint32(14, checksum,             true); // CRC-32 checksum
+        lfhView.setUint32(18, fileDataBytes.length, true); // Compressed size
+        lfhView.setUint32(22, entry.content.length, true); // Uncompressed size
+        lfhView.setUint16(26, filenameBytes.length, true); // Entry name length
+        lfhView.setUint16(28, 0,                    true); // Extra field length
 
-        // Central Directory File Header - 46 bytes
-        const centralDirectoryHeader: Uint8Array = writeHeader(46, (view) => {
-            view.setUint32( 0, 0x02014b50,           true); // Signature 0x02014b50
-            view.setUint16( 4, 0x0314,               true); // Made on Unix (0x03), ZIP version 2.0 (0x14)
-            view.setUint16( 6, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
-            view.setUint16( 8, 0,                    true); // General purpose bit flag
-            view.setUint16(10, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
-            view.setUint16(12, modTime,              true); // Last modification time - DOS format
-            view.setUint16(14, modDate,              true); // Last modification date - DOS format
-            view.setUint32(16, checksum,             true); // CRC-32 checksum
-            view.setUint32(20, fileDataBytes.length, true); // Compressed size
-            view.setUint32(24, entry.content.length, true); // Uncompressed size
-            view.setUint16(28, filenameBytes.length, true); // Entry name length
-            view.setUint16(30, 0,                    true); // Extra field length
-            view.setUint16(32, 0,                    true); // File comment length
-            view.setUint16(34, 0,                    true); // Disk number where file starts
-            view.setUint16(36, 0,                    true); // Internal file attributes
-            view.setUint32(38, externalAttrs,        true); // External file attributes
-            view.setUint32(42, localHeaderOffset,    true); // Offset from the start of the archive
-        });
+        // Central Directory Header - 46 bytes
+        const cdhBuffer: Uint8Array = new Uint8Array(46);
+        const cdhView  : DataView   = new DataView(cdhBuffer.buffer);
+        cdhView.setUint32( 0, 0x02014b50,           true); // Signature 0x02014b50
+        cdhView.setUint16( 4, 0x0314,               true); // Made on Unix (0x03), ZIP version 2.0 (0x14)
+        cdhView.setUint16( 6, 0x14,                 true); // Version needed to extract (0x14 = 20 => 2.0)
+        cdhView.setUint16( 8, 0,                    true); // General purpose bit flag
+        cdhView.setUint16(10, compression,          true); // Compression method: 0 - uncompressed, 8 - deflate
+        cdhView.setUint16(12, modTime,              true); // Last modification time - DOS format
+        cdhView.setUint16(14, modDate,              true); // Last modification date - DOS format
+        cdhView.setUint32(16, checksum,             true); // CRC-32 checksum
+        cdhView.setUint32(20, fileDataBytes.length, true); // Compressed size
+        cdhView.setUint32(24, entry.content.length, true); // Uncompressed size
+        cdhView.setUint16(28, filenameBytes.length, true); // Entry name length
+        cdhView.setUint16(30, 0,                    true); // Extra field length
+        cdhView.setUint16(32, 0,                    true); // File comment length
+        cdhView.setUint16(34, 0,                    true); // Disk number where file starts
+        cdhView.setUint16(36, 0,                    true); // Internal file attributes
+        cdhView.setUint32(38, externalAttrs,        true); // External file attributes
+        cdhView.setUint32(42, headerOffset,         true); // Offset from the start of the archive
 
-        entriesChunks.push(localFileHeader, filenameBytes, fileDataBytes);
-        centralDirectoryChunks.push(centralDirectoryHeader, filenameBytes);
+        entriesChunks  .push(lfhBuffer, filenameBytes, fileDataBytes);
+        directoryChunks.push(cdhBuffer, filenameBytes);
 
-        countEntries         += 1;
-        localHeaderOffset    += localFileHeader.length + filenameBytes.length + fileDataBytes.length;
-        centralDirectorySize += centralDirectoryHeader.length + filenameBytes.length;
+        countEntries  += 1;
+        headerOffset  += lfhBuffer.length + filenameBytes.length + fileDataBytes.length;
+        directorySize += cdhBuffer.length + filenameBytes.length;
     }
 
     function getZip(): Uint8Array {
         // End of Central Directory record - 22 bytes
-        const endOfCentralDirectory: Uint8Array = writeHeader(22, (view) => {
-            view.setUint32( 0, 0x06054b50,           true); // Signature 0x06054b50
-            view.setUint16( 4, 0,                    true); // Disk where Central Directory ends
-            view.setUint16( 6, 0,                    true); // Disk where central directory starts
-            view.setUint16( 8, countEntries,         true); // Number of central directory records on this disk
-            view.setUint16(10, countEntries,         true); // Total number of central directory records
-            view.setUint32(12, centralDirectorySize, true); // Central directory size in bytes
-            view.setUint32(16, localHeaderOffset,    true); // Offset of start of central directory, relative to start of archive
-            view.setUint16(20, 0,                    true); // Comment length
-        });
+        const ecdBuffer: Uint8Array = new Uint8Array(22);
+        const ecdView  : DataView   = new DataView(ecdBuffer.buffer);
+        ecdView.setUint32( 0, 0x06054b50,    true); // Signature 0x06054b50
+        ecdView.setUint16( 4, 0,             true); // Disk where Central Directory ends
+        ecdView.setUint16( 6, 0,             true); // Disk where central directory starts
+        ecdView.setUint16( 8, countEntries,  true); // Number of central directory records on this disk
+        ecdView.setUint16(10, countEntries,  true); // Total number of central directory records
+        ecdView.setUint32(12, directorySize, true); // Central directory size in bytes
+        ecdView.setUint32(16, headerOffset,  true); // Offset of start of central directory, relative to start of archive
+        ecdView.setUint16(20, 0,             true); // Comment length
 
-        const entriesContent  : Uint8Array = concatBytes(entriesChunks);
-        const centralDirectory: Uint8Array = concatBytes(centralDirectoryChunks);
+        const entriesBuffer  : Uint8Array = concatArrays(entriesChunks);
+        const directoryBuffer: Uint8Array = concatArrays(directoryChunks);
 
-        return concatBytes([entriesContent, centralDirectory, endOfCentralDirectory]);
+        return concatArrays([entriesBuffer, directoryBuffer, ecdBuffer]);
     }
 
     function encodeUtf8(text: string): Uint8Array {
@@ -214,13 +213,7 @@ export function makeZipper(): IZipper {
         return (((year - 1980) & 0b111_1111) << 9) | ((month & 0b1111) << 5) | (day & 0b1_1111);
     }
 
-    function writeHeader(size: number, write: (view: DataView) => void): Uint8Array {
-        const bytes: Uint8Array = new Uint8Array(size);
-        write(new DataView(bytes.buffer));
-        return bytes;
-    }
-
-    function concatBytes(arrays: Uint8Array[]): Uint8Array {
+    function concatArrays(arrays: Uint8Array[]): Uint8Array {
         const totalLength: number = arrays.reduce((sum: number, chunk: Uint8Array): number => sum + chunk.length, 0);
         const output: Uint8Array = new Uint8Array(totalLength);
 
@@ -233,12 +226,13 @@ export function makeZipper(): IZipper {
         return output;
     }
 
-    async function deflateRaw(inputData: Uint8Array): Promise<Uint8Array> {
-        const deflateStream   : CompressionStream = new globalThis.CompressionStream("deflate-raw");
-        const inputDataBlob   : Blob              = new globalThis.Blob([inputData.buffer as ArrayBuffer]);
-        const compressedStream: ReadableStream    = inputDataBlob.stream().pipeThrough(deflateStream);
-        const compressedBuffer: ArrayBuffer       = await new globalThis.Response(compressedStream).arrayBuffer();
+    async function deflateRaw(inputBuffer: ArrayBuffer): Promise<ArrayBuffer> {
+        const inputBlob         : Blob              = new globalThis.Blob([inputBuffer]);
+        const uncompressedStream: ReadableStream    = inputBlob.stream();
+        const deflateTransform  : CompressionStream = new globalThis.CompressionStream("deflate-raw");
+        const compressedStream  : ReadableStream    = uncompressedStream.pipeThrough(deflateTransform);
+        const compressedResponse: Response          = new globalThis.Response(compressedStream);
 
-        return new Uint8Array(compressedBuffer);
+        return compressedResponse.arrayBuffer();
     }
 }
