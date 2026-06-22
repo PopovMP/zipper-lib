@@ -1,18 +1,18 @@
 {
   "name": "zipper-lib",
-  "version": "1.0.0",
-  "description": "JS Zip file reader and writer",
+  "version": "2.0.0",
+  "description": "ZIP file writer",
   "keywords": [
     "zip"
   ],
   "repository": {
     "type": "git",
-    "url": "git"
+    "url": "git@github.com:PopovMP/zipper-lib.git"
   },
   "license": "ISC",
   "author": "PopovMP",
   "type": "module",
-  "main": "zip-lib.ts",
+  "main": "zipper-lib.ts",
   "scripts": {
     "check": "tsc --build",
     "lint": "eslint",

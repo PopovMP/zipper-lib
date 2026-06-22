@@ -5,6 +5,7 @@
   "exclude": [
     "eslint.config.mjs",
     "eslint-rules.mjs",
+    "test-browser/index.js",
    ],
   "compilerOptions": {
     "lib"        : ["ES2021"],
@@ -12,7 +13,6 @@
     "target"     : "ESNext",
     "incremental": true,
     "noEmit"     : true,
-    "tsBuildInfoFile": "./.cache/zipper-lib.tsbuildinfo",
 
     // Strict Type Checking
     "allowUnreachableCode"              : false,

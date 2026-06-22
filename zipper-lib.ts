@@ -18,7 +18,7 @@ interface IZipperEntry {
     deflate: boolean; // If missing, true for files
 }
 
-export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Uint8Array>): IZipper {
+export function makeZipper(): IZipper {
     const crc32Table            : Uint32Array  = getCrc32Table();
     const entriesChunks         : Uint8Array[] = [];
     const centralDirectoryChunks: Uint8Array[] = [];
@@ -71,7 +71,7 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
 
         let fileDataBytes: Uint8Array;
         if (entry.deflate) {
-            fileDataBytes = await deflatePromise(entry.content);
+            fileDataBytes = await deflateRaw(entry.content);
         } else {
             fileDataBytes = entry.content;
         }
@@ -231,5 +231,14 @@ export function makeZipperLib(deflatePromise: (buffer: Uint8Array) => Promise<Ui
         }
 
         return output;
+    }
+
+    async function deflateRaw(inputData: Uint8Array): Promise<Uint8Array> {
+        const deflateStream   : CompressionStream = new globalThis.CompressionStream("deflate-raw");
+        const inputDataBlob   : Blob              = new globalThis.Blob([inputData as unknown as BlobPart]);
+        const compressedStream: ReadableStream    = inputDataBlob.stream().pipeThrough(deflateStream);
+        const compressedBuffer: ArrayBuffer       = await new globalThis.Response(compressedStream).arrayBuffer();
+
+        return new Uint8Array(compressedBuffer);
     }
 }

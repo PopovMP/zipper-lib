@@ -1,7 +1,7 @@
 "use strict";
 var Zipper = (() => {
-  // lib/zipper-lib.ts
-  function makeZipperLib(deflatePromise) {
+  // zipper-lib.ts
+  function makeZipper() {
     const crc32Table = getCrc32Table();
     const entriesChunks = [];
     const centralDirectoryChunks = [];
@@ -45,7 +45,7 @@ var Zipper = (() => {
       const externalAttrs = getExternalAttributes(entry.isDir, entry.mode);
       let fileDataBytes;
       if (entry.deflate) {
-        fileDataBytes = await deflatePromise(entry.content);
+        fileDataBytes = await deflateRaw(entry.content);
       } else {
         fileDataBytes = entry.content;
       }
@@ -169,15 +169,10 @@ var Zipper = (() => {
       }
       return output;
     }
-  }
-
-  // lib/zipper-browser.ts
-  function makeZipper() {
-    return makeZipperLib(deflatePromiseBrowser);
-    async function deflatePromiseBrowser(buffer) {
-      const blob = new globalThis.Blob([buffer]);
-      const deflateRaw = new globalThis.CompressionStream("deflate-raw");
-      const compressedStream = blob.stream().pipeThrough(deflateRaw);
+    async function deflateRaw(inputData) {
+      const deflateStream = new globalThis.CompressionStream("deflate-raw");
+      const inputDataBlob = new globalThis.Blob([inputData]);
+      const compressedStream = inputDataBlob.stream().pipeThrough(deflateStream);
       const compressedBuffer = await new globalThis.Response(compressedStream).arrayBuffer();
       return new Uint8Array(compressedBuffer);
     }
