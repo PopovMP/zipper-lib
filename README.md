@@ -1,14 +1,14 @@
 # zipper-lib
 
-Small TypeScript ZIP writer for Node.js and browsers.
+In-memory ZIP generator for Node.js and browsers.
 
-It creates ZIP archives in memory as Uint8Array.
+Zipper-lib is use for generating ZIP archive online for download or persisting in Node.js.
 
 Try a test archive.ts: (https://popovmp.github.io/zipper-lib/)
 
 ## Features
 
-- Create folders and files in a ZIP archive
+- Create folders and files in a ZIP archive in-memory
 - Supports file permissions and modified time metadata
 - Uses raw deflate compression for larger files
 - Works in latest Node.js and browsers
@@ -16,7 +16,7 @@ Try a test archive.ts: (https://popovmp.github.io/zipper-lib/)
 ## Quick example
 
 ```ts
-import { type IZipper, makeZipper } from "./zipper-lib.ts";
+import { type IZipper, makeZipper } from "@popovmp/zipper-lib";
 
 const zipper: IZipper = makeZipper();
 zipper.appendDir("some/dir/");
@@ -31,7 +31,7 @@ const zip: Uint8Array = zipper.getZip();
 Create a zipper instance.
 
 ```ts
-import { type IZipper, makeZipper } from "./zipper-lib.ts";
+import { type IZipper, makeZipper } from "@popovmp/zipper-lib";
 const zipper: IZipper = makeZipper();
 ```
 
@@ -97,7 +97,7 @@ const zip: Uint8Array = zipper.getZip();
 
 ```ts
 // Import for Zipper-lib
-import { type IZipper, makeZipper } from "./zipper-lib.ts";
+import { type IZipper, makeZipper } from "zipper-lib";
 
 // Make new zipper instance to start a new ZIP archive
 const zipper: IZipper = makeZipper();
@@ -124,12 +124,19 @@ Type check and lint:
 ```bash
 npm run check
 npm run lint
+npm run build:demo
 ```
 
 Bundle browser demo:
 
 ```bash
 npm run build
+```
+
+Build npm package artifacts (`dist/*.js` and `dist/*.d.ts`):
+
+```bash
+npm run build:pkg
 ```
 
 Run Node test script:

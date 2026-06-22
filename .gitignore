@@ -1,6 +1,7 @@
-node_modules
+node_modules/
+dist/
 test-node/archive.zip
-test-node/nested
+test-node/nested/
 test-node/hello.txt
 package-lock.json
-tsconfig.tsbuildinfo
+*.tsbuildinfo

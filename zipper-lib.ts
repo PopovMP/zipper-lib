@@ -235,7 +235,7 @@ export function makeZipper(): IZipper {
 
     async function deflateRaw(inputData: Uint8Array): Promise<Uint8Array> {
         const deflateStream   : CompressionStream = new globalThis.CompressionStream("deflate-raw");
-        const inputDataBlob   : Blob              = new globalThis.Blob([inputData as unknown as BlobPart]);
+        const inputDataBlob   : Blob              = new globalThis.Blob([inputData.buffer as ArrayBuffer]);
         const compressedStream: ReadableStream    = inputDataBlob.stream().pipeThrough(deflateStream);
         const compressedBuffer: ArrayBuffer       = await new globalThis.Response(compressedStream).arrayBuffer();
 

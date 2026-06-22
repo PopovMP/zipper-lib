@@ -1,5 +1,5 @@
 {
-  "name": "zipper-lib",
+  "name": "@popovmp/zipper-lib",
   "version": "2.0.0",
   "description": "ZIP file writer",
   "keywords": [
@@ -12,12 +12,28 @@
   "license": "ISC",
   "author": "PopovMP",
   "type": "module",
-  "main": "zipper-lib.ts",
+  "main": "./dist/zipper-lib.js",
+  "types": "./dist/zipper-lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/zipper-lib.d.ts",
+      "default": "./dist/zipper-lib.js"
+    }
+  },
+  "files": [
+    "dist/*.js",
+    "dist/*.d.ts",
+    "README.md"
+  ],
+  "sideEffects": false,
   "scripts": {
     "check": "tsc --build",
     "lint": "eslint",
-    "test": "node --test",
-    "build": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js"
+    "build:demo": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js",
+    "build:pkg": "npm run build:pkg:js && npm run build:pkg:types",
+    "build:pkg:js": "esbuild ./zipper-lib.ts --format=esm --platform=neutral --target=es2021 --log-level=warning --outfile=./dist/zipper-lib.js",
+    "build:pkg:types": "tsc -p ./tsconfig.package.json",
+    "prepublishOnly": "npm run check && npm run lint && npm run build:pkg"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
