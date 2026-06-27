@@ -9,6 +9,24 @@ export interface IZipper {
     getZip    : () => Uint8Array;
 }
 
+export interface IZipHeader {
+    isDir  : boolean;
+    mode   : number;
+    mtimeMs: number;
+    path   : string;
+}
+
+export interface IUnZipper {
+    getHeaders: () => IZipHeader[];
+    getContent: (path: string) => Promise<Uint8Array>;
+}
+
+interface ICentralDirectoryRecord {
+    countEntries : number; // Count of Central Directory Headers
+    headerOffset : number; // Offset of the first Central Directory Header from the start of the ZIP
+    directorySize: number; // Total size of all Central Directory Headers
+}
+
 interface IZipperEntry {
     path   : string;
     content: Uint8Array;
@@ -120,7 +138,7 @@ export function makeZipper(): IZipper {
     }
 
     function getZip(): Uint8Array {
-        // End of Central Directory record - 22 bytes
+        // End of Central Directory Record - 22 bytes
         const ecdBuffer: Uint8Array = new Uint8Array(22);
         const ecdView  : DataView   = new DataView(ecdBuffer.buffer);
         ecdView.setUint32( 0, 0x06054b50,    true); // Signature 0x06054b50
@@ -177,7 +195,7 @@ export function makeZipper(): IZipper {
         }
 
         return table;
-    };
+    }
 
     function crc32(bytes: Uint8Array): number {
         let crc: number = 0xFFFFFFFF;
@@ -235,5 +253,175 @@ export function makeZipper(): IZipper {
         const compressedBuffer  : ArrayBuffer       = await compressedResponse.arrayBuffer();
 
         return new Uint8Array(compressedBuffer);
+    }
+}
+
+export function makeUnZipper(zip: Uint8Array): IUnZipper {
+    const crc32Table: Uint32Array = getCrc32Table();
+    const view: DataView = new DataView(zip.buffer);
+
+    return {
+        getHeaders,
+        getContent,
+    };
+
+    function getHeaders(): IZipHeader[] {
+        const cdr: ICentralDirectoryRecord = getCentralDirectoryRecord();
+
+        const headers: IZipHeader[] = new Array<IZipHeader>(cdr.countEntries);
+
+        let offset: number = cdr.headerOffset;
+        for (let i = 0; i < cdr.countEntries; i++) {
+            headers[i] = getCentralDirectoryHeader(offset);
+            offset += 46 + headers[i].path.length;
+        }
+
+        return headers;
+    }
+
+    async function getContent(path: string): Promise<Uint8Array> {
+        const cdr: ICentralDirectoryRecord = getCentralDirectoryRecord();
+
+        let offset: number = cdr.headerOffset;
+        while (offset < cdr.headerOffset + cdr.directorySize) {
+            const cdh: IZipHeader = getCentralDirectoryHeader(offset);
+            if (cdh.path === path) {
+                return getContentFromCdh(offset);
+            }
+            offset += 46 + cdh.path.length;
+        }
+
+        throw new Error("Cannot find file: " + path);
+    }
+
+    function getCentralDirectoryRecord(): ICentralDirectoryRecord {
+        const cdrOffset: number = zip.length - 22;
+
+        const signature: number = view.getUint32(cdrOffset, true);
+        if (signature !== 0x06054b50) {
+            throw new Error("Not a valid ZIP. Wrong CDR signature.");
+        }
+
+        return {
+            countEntries : view.getUint16(cdrOffset +  8, true),
+            directorySize: view.getUint32(cdrOffset + 12, true),
+            headerOffset : view.getUint32(cdrOffset + 16, true),
+        };
+    }
+
+    function getCentralDirectoryHeader(offset: number): IZipHeader {
+        const signature: number = view.getUint32(offset, true);
+        if (signature !== 0x02014b50) {
+            throw new Error("Not a valid ZIP. Wrong CDH signature.");
+        }
+
+        const filenameLength: number = view.getUint16(offset + 28, true);
+        const filename      : string = getString(offset + 46, filenameLength);
+        const externalAttrs : number = view.getUint32(offset + 38, true);
+        const modDate       : number = view.getUint16(offset + 14, true);
+        const modTime       : number = view.getUint16(offset + 12, true);
+
+        return {
+            isDir  : filename.endsWith("/"),
+            mode   : getMode(externalAttrs),
+            mtimeMs: getMtimeMs(modDate, modTime),
+            path   : filename,
+        };
+    }
+
+    function getString(offset: number, length: number): string {
+        return new globalThis.TextDecoder().decode(zip.subarray(offset, offset + length));
+    }
+
+    function getMode(externalAttrs: number): number {
+        const unixAttrs: number = (externalAttrs >> 16) & 0xFFFF;
+        return unixAttrs & 0o7777;
+    }
+
+    function getMtimeMs(modDate: number, modTime: number): number {
+        // DOS date: yyyy_yyym_mmmd_dddd
+        const year : number = 1980 + ((modDate >> 9) & 0b111_1111);
+        const month: number = ((modDate >> 5) & 0b1111) - 1;
+        const day  : number = modDate & 0b1_1111;
+
+        // DOS time: hhhh_hmmm_mmms_ssss
+        const hour  : number = (modTime >> 11) & 0b1_1111;
+        const minute: number = (modTime >>  5) & 0b11_1111;
+        const second: number = (modTime & 0b1_1111) * 2;
+
+        return new Date(year, month, day, hour, minute, second).getTime();
+    }
+
+    async function getContentFromCdh(cdhOffset: number): Promise<Uint8Array> {
+        const compression     : number = view.getUint16(cdhOffset + 10, true);
+        const checksum        : number = view.getUint32(cdhOffset + 16, true);
+        const compressedSize  : number = view.getUint32(cdhOffset + 20, true);
+        const uncompressedSize: number = view.getUint32(cdhOffset + 24, true);
+        const filenameLength  : number = view.getUint16(cdhOffset + 28, true);
+        const lfhOffset       : number = view.getUint32(cdhOffset + 42, true);
+
+        // Check Local File Header signature
+        const signature: number = view.getUint32(lfhOffset, true);
+        if (signature !== 0x04034b50) {
+            throw new Error("Wrong local file header signature");
+        }
+
+        const isCompressed: boolean = compression === 8;
+        const dataOffset  : number  = lfhOffset + 30 + filenameLength;
+
+        let outputBytes: Uint8Array;
+        if (isCompressed) {
+            outputBytes = await inflateRaw(zip.subarray(dataOffset, dataOffset + compressedSize));
+        } else {
+            outputBytes = zip.slice(dataOffset, dataOffset + uncompressedSize);
+        }
+
+        if (outputBytes.length !== uncompressedSize) {
+            throw new Error("Wrong length of the decompressed file");
+        }
+
+        const crcSum: number = crc32(outputBytes);
+        if (crcSum !== checksum) {
+            throw new Error("Wrong checksum of the file");
+        }
+
+        return outputBytes;
+    }
+
+    function getCrc32Table(): Uint32Array {
+        const table: Uint32Array = new Uint32Array(256);
+
+        for (let index = 0; index < 256; index += 1) {
+            let crc: number = index;
+
+            for (let bit = 0; bit < 8; bit += 1) {
+                crc = (crc & 1) !== 0 ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+            }
+
+            table[index] = crc >>> 0;
+        }
+
+        return table;
+    }
+
+    function crc32(bytes: Uint8Array): number {
+        let crc: number = 0xFFFFFFFF;
+
+        for (const byte of bytes) {
+            crc = crc32Table[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+        }
+
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    async function inflateRaw(input: Uint8Array): Promise<Uint8Array> {
+        const inputBlob       : Blob              = new globalThis.Blob([input as unknown as ArrayBuffer]);
+        const compressedStream: ReadableStream    = inputBlob.stream();
+        const inflateTransform: CompressionStream = new globalThis.DecompressionStream("deflate-raw");
+        const inflatedStream  : ReadableStream    = compressedStream.pipeThrough(inflateTransform);
+        const inflatedResponse: Response          = new globalThis.Response(inflatedStream);
+        const inflatedBuffer  : ArrayBuffer       = await inflatedResponse.arrayBuffer();
+
+        return new Uint8Array(inflatedBuffer);
     }
 }

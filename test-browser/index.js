@@ -37,6 +37,7 @@ var Zipper = (() => {
     async function appendEntry(entry) {
       const isDeflate = !entry.isDir && entry.content.length > 512;
       const compression = isDeflate ? 8 : 0;
+      const gpFlags = 2048;
       const modTime = getModTime(entry.mtimeMs);
       const modDate = getModDate(entry.mtimeMs);
       const checksum = crc32(entry.content);
@@ -52,7 +53,7 @@ var Zipper = (() => {
       const lfhView = new DataView(lfhBuffer.buffer);
       lfhView.setUint32(0, 67324752, true);
       lfhView.setUint16(4, 20, true);
-      lfhView.setUint16(6, 0, true);
+      lfhView.setUint16(6, gpFlags, true);
       lfhView.setUint16(8, compression, true);
       lfhView.setUint16(10, modTime, true);
       lfhView.setUint16(12, modDate, true);
@@ -66,7 +67,7 @@ var Zipper = (() => {
       cdhView.setUint32(0, 33639248, true);
       cdhView.setUint16(4, 788, true);
       cdhView.setUint16(6, 20, true);
-      cdhView.setUint16(8, 0, true);
+      cdhView.setUint16(8, gpFlags, true);
       cdhView.setUint16(10, compression, true);
       cdhView.setUint16(12, modTime, true);
       cdhView.setUint16(14, modDate, true);
@@ -131,7 +132,6 @@ var Zipper = (() => {
       }
       return table;
     }
-    ;
     function crc32(bytes) {
       let crc = 4294967295;
       for (const byte of bytes) {

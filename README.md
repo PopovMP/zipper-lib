@@ -1,14 +1,17 @@
 # zipper-lib
 
-In-memory ZIP generator for Node.js and browsers.
+In-memory ZIP generator and reader for Node.js and browsers.
 
 Zipper-lib is use for generating ZIP archive online for download or persisting in Node.js.
+
+Unzipper-lib is used to extract content from ZIP created by zipper-lib.
 
 Try a test archive.ts: (https://popovmp.github.io/zipper-lib/)
 
 ## Features
 
 - Create folders and files in a ZIP archive in-memory
+- Read ZIP headers and file content from generated archives
 - Supports file permissions and modified time metadata
 - Uses raw deflate compression for larger files
 - Works in latest Node.js and browsers
@@ -16,12 +19,22 @@ Try a test archive.ts: (https://popovmp.github.io/zipper-lib/)
 ## Quick example
 
 ```ts
-import { type IZipper, makeZipper } from "@popovmp/zipper-lib";
+import { type IUnZipper, type IZipper, makeZipper, makeUnZipper } from "@popovmp/zipper-lib";
 
 const zipper: IZipper = makeZipper();
-zipper.appendDir("some/dir/");
-await zipper.appendFile("path/to/file.txt", "File content string");
+const filePath = "path/to/file.txt";
+const content = new TextEncoder().encode("File content string");
+
+zipper.appendDir("some/dir/", { mode: 0o755 });
+await zipper.appendFile(filePath, content, { mode: 0o644 });
 const zip: Uint8Array = zipper.getZip();
+
+const unZipper: IUnZipper = makeUnZipper(zip);
+const headers = unZipper.getHeaders();
+const decoded = await unZipper.getContent(filePath);
+
+console.log(headers[0].path);
+console.log(decoded.length);
 ```
 
 ## Public API
@@ -93,28 +106,80 @@ Returns a Uint8Array containing the full ZIP archive.
 const zip: Uint8Array = zipper.getZip();
 ```
 
-## Full Example
+## Unzipper API
+
+Import unzipper from the package subpath:
 
 ```ts
-// Import for Zipper-lib
-import { type IZipper, makeZipper } from "zipper-lib";
+import { type IZipHeader, type IUnZipper, makeUnZipper } from "@popovmp/zipper-lib";
+```
 
-// Make new zipper instance to start a new ZIP archive
+### makeUnZipper(zip)
+
+Create an unzipper instance from ZIP bytes.
+
+- zip: Uint8Array
+
+```ts
+const unZipper: IUnZipper = makeUnZipper(zip);
+```
+
+### getHeaders()
+
+Returns all ZIP entries as headers.
+
+- returns: IZipHeader[]
+- IZipHeader fields:
+	- path: string
+	- isDir: boolean
+	- mode: number
+	- mtimeMs: number
+
+```ts
+const headers: IZipHeader[] = unZipper.getHeaders();
+```
+
+### getContent(path)
+
+Returns decoded file bytes for a given file path.
+
+- path: string
+- returns: Promise<Uint8Array>
+
+```ts
+const bytes: Uint8Array = await unZipper.getContent("my/file");
+```
+
+## Round-trip examples (from tests)
+
+```ts
+import { type IZipHeader, type IUnZipper, type IZipper, makeZipper, makeUnZipper } from "@popovmp/zipper-lib";
+
+// Make zipper
 const zipper: IZipper = makeZipper();
+const mtimeMs: number = Date.parse("2026-04-01T19:31:12");
 
-// Append directories
-zipper.appendDir("nested");
-zipper.appendDir("nested/empty", { mode: 0o775 }); // Set unix mode explicitly
+// Append a directory
+zipper.appendDir("my/dir/path/", { mtimeMs, mode: 0o777 });
 
-// Append files
-await zipper.appendFile("hello.txt", "Hello World!\n".repeat(100), { mtimeMs: Date.parse("2026-06-18T18:33") }); // Set modification time
-await zipper.appendFile("nested/data.bin", Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
-await zipper.appendFile("nested/echo.sh", "echo Hello World", { mode: 0o744 }); // Make executable
+// Append a file
+await zipper.appendFile("my/file.txt", "Hello, World!\n", { mtimeMs });
 
-// Produce the ZIP archive
+// Get the ZIP archive
 const zip: Uint8Array = zipper.getZip();
 
-// Do something with the ZIP
+// Make UnZipper
+const unZipper: IUnZipper = makeUnZipper(zip);
+
+// Ge the archive content headers
+const headers: IZipHeader[] = unZipper.getHeaders();
+
+console.log(headers[0]); // => { isDir: true,  mode: 0o777, mtimeMs: 1775061072000, path: "my/dir/path/" }
+console.log(headers[1]); // => { isDir: false, mode: 0o644, mtimeMs: 1775061072000, path: "my/file.txt"  }
+
+// Get a file content
+const content: Uint8Array = await unZipper.getContent(headers[1].path);
+console.log( new TextDecoder().decode(content) ); // => "Hello, World!"
 ```
 
 ## Build and Validate

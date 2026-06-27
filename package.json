@@ -1,9 +1,10 @@
 {
   "name": "@popovmp/zipper-lib",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "ZIP file writer",
   "keywords": [
-    "zip"
+    "zip",
+    "unzip"
   ],
   "repository": {
     "type": "git",
@@ -29,6 +30,7 @@
   "scripts": {
     "check": "tsc --build",
     "lint": "eslint",
+    "test": "node --test",
     "build:demo": "esbuild ./test-browser/index.ts --bundle --global-name=Zipper --platform=browser --log-level=warning --outfile=./test-browser/index.js",
     "build:pkg": "npm run build:pkg:js && npm run build:pkg:types",
     "build:pkg:js": "esbuild ./zipper-lib.ts --format=esm --platform=neutral --target=es2021 --log-level=warning --outfile=./dist/zipper-lib.js",
@@ -39,9 +41,9 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.4",
     "esbuild": "^0.28.1",
-    "eslint": "^10.5.0",
+    "eslint": "^10.6.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1"
+    "typescript-eslint": "^8.62.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true
